@@ -2,13 +2,24 @@ import requests
 import json
 from bs4 import BeautifulSoup
 from datetime import datetime
-course_count = 9
-
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 class DuifenyiClient:
     def __init__(self,username,password):
         self.username=username
         self.password = password
+        # 构造重试结构参数
+        self.retry_strategy = Retry(
+            total=3,
+            status_forcelist = [429, 500, 502, 503, 504],
+            # method_whitelist=['POST','GET'],不支持该参数
+            allowed_methods=['POST','GET'],
+            backoff_factor=1
+        )
+        self.adapter = HTTPAdapter(max_retries=self.retry_strategy)
         self.session = requests.session()
+        # 挂载适配器
+        self.session.mount('https://www.duifene.com/AppCode/LoginInfo.ashx',self.adapter)
     def __login(self):
         login_url = 'https://www.duifene.com/AppCode/LoginInfo.ashx'
         guid = self.__getguid()
@@ -25,8 +36,9 @@ class DuifenyiClient:
             "issave": "false",
             "guid": guid
         }
-        res = self.session.post(url=login_url, headers=headers, data=data)
+        res = self.session.post(url=login_url,headers=headers, data=data)
         self.session.get(url=login_url, headers=headers)
+        print("login:",res)
         return self.session
     def __save_homework(self):
         if self.data == {}:
@@ -52,6 +64,7 @@ class DuifenyiClient:
             "refresh":"0"
         }
         re = self.session.post(url = getgomework_url,headers=headers,data=data)
+        print("gethomework:",re)
         return eval(str(re.text))
     def __getguid(self):
         guid = ''
@@ -78,28 +91,42 @@ class DuifenyiClient:
             "content-type": "application/x-www-form-urlencoded; charset=UTF-8"
         }
         re = self.session.post(url=getcourse_url,headers=headers,data=data)
-        # print(re.text)
-        return eval(str(re.text))[:course_count]
+        print("getcourse:",re)
+        return eval(str(re.text))
     def __fetchhomewok(self):
         self.session = self.__login()
         course_list = self.__getcourse()
-        course_dict = {}
+        len = 0
+        for course in course_list:
+            temp = course['CreaterDate'].replace('\\/',' ').split(' ')
+            time = temp[3].split(':')
+            date = datetime(int(temp[0]),int(temp[1]),int(temp[2]),int(time[0]),int(time[1]),int(time[2]))
+            specific_time = datetime(2024, 6, 1, 0, 0, 0)
+            if date >= specific_time:
+                len+=1
+            else:
+                break
+        print("课程数量：",len)
+        course_list = course_list[:len]
+        print(course_list)
+        homework_dict = {}
         for course in course_list:
             homework_list = self.__gethomework(course)
             if homework_list !=[]:
                 homework_l = []
                 for homework in homework_list:
+                    print(homework)
                     if(homework['Status']==''):
-                        homework_dict = {}
-                        homework_dict['作业:'] = homework['HWName']
+                        temp_h_dict = {}
+                        temp_h_dict['作业:'] = homework['HWName']
                         temp =homework['EndDate'].replace('\\/',' ').split(' ')
                         time = temp[3].split(':')
                         date =datetime(int(temp[0]),int(temp[1]),int(temp[2]),int(time[0]),int(time[1]),int(time[2]))
-                        homework_dict['截止时间:'] = str(date)
-                        homework_l.append(homework_dict)
+                        temp_h_dict['截止时间:'] = str(date)
+                        homework_l.append(temp_h_dict)
                 if homework_l != []:
-                    course_dict[course['CourseName']] = homework_l
-        return course_dict
+                    homework_dict[course['CourseName']] = homework_l
+        return homework_dict
     def __fetch(self):
         self.data = self.__fetchhomewok()
         self.__save_homework()
@@ -109,6 +136,8 @@ class DuifenyiClient:
         with open('./resource/data/homework','r',encoding='utf-8') as f:
             homework_data = json.load(f)
         return homework_data
-# cilent = DuifenyiClient(username='aqiang',password='lQ15182312657')
-# data = cilent.get()
-# print(data)
+# if __name__=='__main__':
+#     cilent = DuifenyiClient(username='aqiang',password='lQ15182312657')
+#     cilent.fetch()
+    # data = cilent.get()
+    # print(data)
