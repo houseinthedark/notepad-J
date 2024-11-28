@@ -1,8 +1,9 @@
-# gui.py
-import json
 import sys
+import json
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QPushButton, QVBoxLayout, QLabel, QLineEdit, QGridLayout, QMessageBox
-from Duifenyi_client import DuifenyiClient  # 导入DuofenyiClient类
+
+from Duifenyi_client import DuifenyiClient  # 导入DuifenyiClient类
+
 
 class LoginWindow(QWidget):
     def __init__(self):
@@ -32,33 +33,29 @@ class LoginWindow(QWidget):
         login_button = QPushButton("登录", self)
         login_button.clicked.connect(self.handle_login)
         layout.addWidget(login_button, 2, 1)
+
     def __read_user(self):
         data = {}
-        with open('./resource/data/user', 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        # with open('./resource/data/user', 'r', encoding='utf-8') as f:
+            # data = eval(f.read())
         return data
-    def __save_user(self,username,password):
-        user = {}
-        user['user']=username
-        user['pwd']=password
-        with open('./resource/data/user','w',encoding='utf-8') as f:
-            json.dump(user,f,ensure_ascii=False,indent=4)
+
+    def __save_user(self, username, password):
+        user = {'user': username, 'pwd': password}
+        with open('./resource/data/user', 'w', encoding='utf-8') as f:
+            json.dump(user, f, ensure_ascii=False, indent=4)
+
     def handle_login(self):
         username = self.username.text()
         password = self.password.text()
-        self.current_user[username]=password
-        # 只要读了，就要卡死......
+        self.current_user["user"] = username
+        self.current_user["pwd"] = password
         data = self.__read_user()
-        if data == {}:
-            print('empty')
-        # print(data)
-        else:
-            if username not in data:
-                self.__save_user(username=username,password=password)
-
+        if username not in data:
+            self.__save_user(username=username, password=password)
         try:
             homework_data = {}
-            with open('./resource/data/homework','r',encoding='utf-8') as f:
+            with open('./resource/data/homework', 'r', encoding='utf-8') as f:
                 homework_data = json.load(f)
             self.accept(homework_data)
         except Exception as e:
@@ -66,19 +63,18 @@ class LoginWindow(QWidget):
 
     def accept(self, homework_data):
         self.close()
-        self.main = MainWindow(homework_data)
+        self.main = MainWindow(homework_data, self.current_user)
         self.main.show()
 
     def screen(self):
         return QApplication.desktop().screenGeometry()
 
-
 class MainWindow(QMainWindow):
-    def __init__(self, homework_data):
+    def __init__(self, homework_data, current_user):
         super().__init__()
         self.homework_data = homework_data
-        # self.username=current_user.items()[0][0]
-        # self.password=current_user.items()[0][1]
+        self.username = current_user["user"]
+        self.password = current_user["pwd"]
         self.initUI()
 
     def initUI(self):
@@ -102,31 +98,38 @@ class MainWindow(QMainWindow):
         self.display_homework(self.homework_data)
 
     def update_homework(self):
-        # client = DuifenyiClient(username=self.username,password=self.password)
-        # self.homework_data= client.get()
-        # self.initUI()
+        client = DuifenyiClient(username=self.username, password=self.password)
+        self.homework_data = client.get()
+        self.display_homework()
         print("更新按钮被点击，执行更新操作")
 
+    def update_homework(self):
+        client = DuifenyiClient(username=self.username, password=self.password)
+        try:
+            self.homework_data = client.get()
+            self.display_homework(self.homework_data)
+        except Exception as e:
+            QMessageBox.warning(self, "错误", str(e))
+            print("更新按钮被点击，执行更新操作")
+
     def display_homework(self, homework_data):
-        # 将作业数据按照截止日期排序
         sorted_homework_items = []
         for course, homeworks in homework_data.items():
             for homework in homeworks:
-                due_date = homework['截止时间:']  # 提取截止日期
-                homework_item = (due_date, course, homework['作业:'])  # 创建元组 (截止日期, 课程名称, 作业名称)
+                due_date = homework['截止时间:']
+                homework_item = (due_date, course, homework['作业:'])
                 sorted_homework_items.append(homework_item)
 
-        # 按截止日期升序排序
         sorted_homework_items.sort(key=lambda item: item[0])
 
-        # 构建展示文本
         memo_text = ""
         for due_date, course, homework_name in sorted_homework_items:
             memo_text += f"{course} ({due_date}) {homework_name}\n"
 
-        self.memo_label.setText(memo_text)  # 将格式化的文本设置为标签的内容
+        self.memo_label.setText(memo_text)
 
-app = QApplication(sys.argv)
-login_window = LoginWindow()
-login_window.show()
-sys.exit(app.exec_())
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    login_window = LoginWindow()
+    login_window.show()
+    sys.exit(app.exec_())
