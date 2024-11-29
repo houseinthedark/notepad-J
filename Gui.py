@@ -36,9 +36,13 @@ class LoginWindow(QWidget):
 
     def __read_user(self):
         data = {}
-        # with open('./resource/data/user', 'r', encoding='utf-8') as f:
-            # data = eval(f.read())
-        return data
+        # 通过捕获异常，显式的忽视错误
+        try:
+            with open('./resource/data/user', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data
+        except json.JSONDecodeError:
+            return data
 
     def __save_user(self, username, password):
         user = {'user': username, 'pwd': password}
