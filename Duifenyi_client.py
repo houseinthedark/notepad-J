@@ -1,5 +1,6 @@
 import requests
 import json
+import pickle
 from bs4 import BeautifulSoup
 from datetime import datetime
 from requests.adapters import HTTPAdapter
@@ -45,7 +46,7 @@ class DuifenyiClient:
             print('无作业')
         else:
             with open('resource/data/homework', 'w', encoding='utf-8') as f:
-                json.dump(self.data,f,ensure_ascii=False,indent=4)
+                json.dump(self.data[0],f,ensure_ascii=False,indent=4)
     def __gethomework(self,arg:dict):
         courseid = arg['CourseID']
         classid = arg['TClassID']
@@ -93,6 +94,10 @@ class DuifenyiClient:
         re = self.session.post(url=getcourse_url,headers=headers,data=data)
         print("getcourse:",re)
         return eval(str(re.text))
+    def __save_course(self):
+        with open('./resource/data/course','wb') as f:
+            # json.dump(f,self.data[1],ensure_ascii=False,indent=4)
+            pickle.dump(self.data[1],f)
     def __fetchhomewok(self):
         self.session = self.__login()
         course_list = self.__getcourse()
@@ -108,6 +113,7 @@ class DuifenyiClient:
                 break
         print("课程数量：",len)
         course_list = course_list[:len]
+        course_dict = [dict({"courseName":f"{course['CourseName']}","className":f"{course['ClassName']}"}) for course in course_list]
         print(course_list)
         homework_dict = {}
         for course in course_list:
@@ -126,10 +132,11 @@ class DuifenyiClient:
                         homework_l.append(temp_h_dict)
                 if homework_l != []:
                     homework_dict[course['CourseName']] = homework_l
-        return homework_dict
-    def __fetch(self):
+        return homework_dict,course_dict
+    def fetch(self):
         self.data = self.__fetchhomewok()
         self.__save_homework()
+        self.__save_course()
     def get(self):
         self.__fetch()
         homework_data = {}
@@ -137,7 +144,7 @@ class DuifenyiClient:
             homework_data = json.load(f)
         return homework_data
 # if __name__=='__main__':
-#     cilent = DuifenyiClient(username='aqiang',password='lQ15182312657')
-#     cilent.fetch()
+    # cilent = DuifenyiClient(username='aqiang',password='lQ15182312657')
+    # cilent.fetch()
     # data = cilent.get()
     # print(data)
