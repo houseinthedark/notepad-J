@@ -108,7 +108,7 @@ class DuifenyiClient:
         month = 0
         if now_month in range(3,8):
             month = 1
-        elif now_month in range(9,12) or now_month ==1:
+        elif now_month in range(9,13) or now_month ==1:
             month = 6
         for course in course_list:
             temp = course['CreaterDate'].replace('\\/',' ').split(' ')
@@ -130,18 +130,18 @@ class DuifenyiClient:
                 homework_l = []
                 for homework in homework_list:
                     print(homework)
-                    if(homework['Status']==''):
-                        temp_h_dict = {}
-                        temp_h_dict['作业:'] = homework['HWName']
-                        temp =homework['EndDate'].replace('\\/',' ').split(' ')
-                        time = temp[3].split(':')
-                        date =datetime(int(temp[0]),int(temp[1]),int(temp[2]),int(time[0]),int(time[1]),int(time[2]))
-                        temp_h_dict['截止时间:'] = str(date)
+                    temp_h_dict = {}
+                    temp_h_dict['作业:'] = homework['HWName']
+                    temp = homework['EndDate'].replace('\\/', ' ').split(' ')
+                    time = temp[3].split(':')
+                    date = datetime(int(temp[0]), int(temp[1]), int(temp[2]), int(time[0]), int(time[1]), int(time[2]))
+                    temp_h_dict['截止时间:'] = str(date)
+                    if homework['Status']=='' and date>=now_date:
                         homework_l.append(temp_h_dict)
                 if homework_l != []:
                     homework_dict[course['CourseName']] = homework_l
         return homework_dict,course_dict
-    def fetch(self):
+    def __fetch(self):
         self.data = self.__fetchhomewok()
         self.__save_homework()
         self.__save_course()
@@ -151,8 +151,8 @@ class DuifenyiClient:
         with open('./resource/data/homework','r',encoding='utf-8') as f:
             homework_data = json.load(f)
         return homework_data
-if __name__=='__main__':
-    cilent = DuifenyiClient(username='aqiang',password='lQ15182312657')
-    cilent.fetch()
+# if __name__=='__main__':
+#     cilent = DuifenyiClient(username='aqiang',password='lQ15182312657')
+    # cilent.fetch()
     # data = cilent.get()
     # print(data)
